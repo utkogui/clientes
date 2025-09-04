@@ -9,7 +9,17 @@ const carregarDadosVCF = async () => {
   try {
     console.log('🔄 Iniciando carregamento automático do VCF...');
     const vcfPath = path.join(__dirname, '../Contatos.vcf');
+    
+    // Verificar se o arquivo existe
+    const fs = require('fs');
+    if (!fs.existsSync(vcfPath)) {
+      console.error('❌ Arquivo VCF não encontrado em:', vcfPath);
+      return;
+    }
+    
+    console.log('📁 Arquivo VCF encontrado:', vcfPath);
     const contatos = VCFParser.parseVCF(vcfPath);
+    console.log(`📊 Total de contatos no VCF: ${contatos.length}`);
     
     let importados = 0;
     let duplicados = 0;
@@ -77,6 +87,7 @@ const carregarDadosVCF = async () => {
     console.log(`✅ Carregamento automático concluído: ${importados} novos clientes, ${duplicados} clientes existentes atualizados`);
   } catch (error) {
     console.error('❌ Erro no carregamento automático do VCF:', error);
+    console.error('Stack trace:', error.stack);
   }
 };
 
@@ -88,15 +99,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Carregar dados do VCF automaticamente ao iniciar o servidor
-carregarDadosVCF();
+// Carregar dados do VCF automaticamente ao iniciar o servidor (não bloqueia)
+carregarDadosVCF().catch(err => {
+  console.error('Erro crítico no carregamento do VCF:', err);
+});
 
 // Rota para visualizador do banco de dados
 app.get('/database-viewer', (req, res) => {
   res.sendFile(path.join(__dirname, '../database-viewer.html'));
 });
 
-// Rota removida - importação agora é automática no startup
+// Rota de debug para verificar status do VCF
+app.get('/api/debug-vcf', (req, res) => {
+  try {
+    const vcfPath = path.join(__dirname, '../Contatos.vcf');
+    const fs = require('fs');
+    const exists = fs.existsSync(vcfPath);
+    
+    res.json({
+      vcfPath,
+      exists,
+      size: exists ? fs.statSync(vcfPath).size : 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Listar todos os clientes
 app.get('/api/clientes', (req, res) => {
