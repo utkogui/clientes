@@ -8,7 +8,6 @@ import {
   Phone, 
   Search, 
   Filter,
-  Download,
   Edit,
   Trash2,
   Plus,
@@ -89,19 +88,7 @@ function App() {
     }
   };
 
-  const importarContatos = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await axios.post('/api/importar-contatos');
-      setSuccess(response.data.mensagem);
-      carregarDados();
-    } catch (err) {
-      setError('Erro ao importar contatos: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Função removida - importação agora é automática no servidor
 
   const atualizarCliente = async (id, dados) => {
     try {
@@ -409,10 +396,7 @@ function App() {
           ⭐ Ver Vale a Pena ({estatisticas.vale_pena || 0})
         </button>
         
-        <button className="btn btn-success" onClick={importarContatos} disabled={loading}>
-          <Download size={16} />
-          Importar VCF
-        </button>
+        {/* Botão removido - importação agora é automática */}
       </div>
 
       {/* Tabela de Clientes */}

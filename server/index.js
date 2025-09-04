@@ -4,29 +4,17 @@ const path = require('path');
 const db = require('./database');
 const VCFParser = require('./vcfParser');
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../client/dist')));
-
-// Rota para visualizador do banco de dados
-app.get('/database-viewer', (req, res) => {
-  res.sendFile(path.join(__dirname, '../database-viewer.html'));
-});
-
-// Importar contatos do arquivo VCF
-app.post('/api/importar-contatos', (req, res) => {
+// Função para carregar dados do VCF automaticamente
+const carregarDadosVCF = async () => {
   try {
+    console.log('🔄 Iniciando carregamento automático do VCF...');
     const vcfPath = path.join(__dirname, '../Contatos.vcf');
     const contatos = VCFParser.parseVCF(vcfPath);
     
     let importados = 0;
     let duplicados = 0;
     
-    contatos.forEach(contato => {
+    for (const contato of contatos) {
       // Importar se tem telefone OU email (não ambos obrigatórios)
       if (contato.telefone || contato.email) {
         // Verificar se já existe por telefone ou email
@@ -46,79 +34,69 @@ app.post('/api/importar-contatos', (req, res) => {
           params = [contato.email];
         }
         
-        db.get(query, params, (err, row) => {
-          if (err) {
-            console.error('Erro ao verificar duplicata:', err);
-            return;
-          }
-          
-          if (!row) {
-            // Inserir novo cliente
-            db.run(
-              'INSERT INTO clientes (nome, email, telefone, empresa, tem_whatsapp) VALUES (?, ?, ?, ?, ?)',
-              [
-                contato.nome || '', 
-                contato.email || '', 
-                contato.telefone || '', 
-                contato.empresa || '', 
-                contato.telefone ? 1 : 0
-              ],
-              function(err) {
-                if (err) {
-                  console.error('Erro ao inserir cliente:', err);
-                } else {
-                  importados++;
-                }
-              }
-            );
-          } else {
-            // Cliente já existe - atualizar apenas informações básicas, preservando dados importantes
-            db.run(
-              `UPDATE clientes SET 
-                nome = COALESCE(?, nome),
-                email = COALESCE(?, email),
-                telefone = COALESCE(?, telefone),
-                empresa = COALESCE(?, empresa),
-                tem_whatsapp = CASE WHEN ? = 1 THEN 1 ELSE tem_whatsapp END,
-                data_atualizacao = CURRENT_TIMESTAMP
-               WHERE id = ?`,
-              [
-                contato.nome || null, 
-                contato.email || null, 
-                contato.telefone || null, 
-                contato.empresa || null, 
-                contato.telefone ? 1 : 0,
-                row.id
-              ],
-              function(err) {
-                if (err) {
-                  console.error('Erro ao atualizar cliente:', err);
-                } else {
-                  duplicados++;
-                }
-              }
-            );
-          }
-        });
+        const row = await db.get(query, params);
+        
+        if (!row) {
+          // Inserir novo cliente
+          await db.run(
+            'INSERT INTO clientes (nome, email, telefone, empresa, tem_whatsapp) VALUES (?, ?, ?, ?, ?)',
+            [
+              contato.nome || '', 
+              contato.email || '', 
+              contato.telefone || '', 
+              contato.empresa || '', 
+              contato.telefone ? 1 : 0
+            ]
+          );
+          importados++;
+        } else {
+          // Cliente já existe - atualizar apenas informações básicas, preservando dados importantes
+          await db.run(
+            `UPDATE clientes SET 
+              nome = COALESCE(?, nome),
+              email = COALESCE(?, email),
+              telefone = COALESCE(?, telefone),
+              empresa = COALESCE(?, empresa),
+              tem_whatsapp = CASE WHEN ? = 1 THEN 1 ELSE tem_whatsapp END,
+              data_atualizacao = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [
+              contato.nome || null, 
+              contato.email || null, 
+              contato.telefone || null, 
+              contato.empresa || null, 
+              contato.telefone ? 1 : 0,
+              row.id
+            ]
+          );
+          duplicados++;
+        }
       }
-    });
+    }
     
-    // Aguardar um pouco para as operações assíncronas terminarem
-    setTimeout(() => {
-      res.json({
-        sucesso: true,
-        total: contatos.length,
-        importados,
-        duplicados,
-        mensagem: `Importação concluída: ${importados} novos clientes, ${duplicados} clientes existentes atualizados (dados importantes preservados)`
-      });
-    }, 2000);
-    
+    console.log(`✅ Carregamento automático concluído: ${importados} novos clientes, ${duplicados} clientes existentes atualizados`);
   } catch (error) {
-    console.error('Erro na importação:', error);
-    res.status(500).json({ sucesso: false, erro: error.message });
+    console.error('❌ Erro no carregamento automático do VCF:', error);
   }
+};
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// Carregar dados do VCF automaticamente ao iniciar o servidor
+carregarDadosVCF();
+
+// Rota para visualizador do banco de dados
+app.get('/database-viewer', (req, res) => {
+  res.sendFile(path.join(__dirname, '../database-viewer.html'));
 });
+
+// Rota removida - importação agora é automática no startup
 
 // Listar todos os clientes
 app.get('/api/clientes', (req, res) => {
