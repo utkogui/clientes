@@ -162,6 +162,81 @@ app.get('/api/debug-db', async (req, res) => {
   }
 });
 
+// Rota para importar dados do JSON
+app.post('/api/import-json-data', async (req, res) => {
+  try {
+    console.log('🔄 Iniciando importação de dados JSON...');
+    
+    // Ler arquivo JSON local
+    const fs = require('fs');
+    const filename = path.join(__dirname, '../clientes-export-2025-09-04.json');
+    
+    if (!fs.existsSync(filename)) {
+      return res.status(404).json({ error: 'Arquivo JSON não encontrado' });
+    }
+    
+    const jsonData = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    const clientes = jsonData.data;
+    
+    console.log(`📊 Carregados ${clientes.length} registros do arquivo JSON`);
+    
+    // Limpar dados existentes
+    await db.run('DELETE FROM clientes');
+    console.log('🧹 Dados existentes removidos');
+    
+    // Inserir novos dados
+    let inseridos = 0;
+    for (const row of clientes) {
+      try {
+        await db.run(`
+          INSERT INTO clientes (
+            nome, email, telefone, empresa, tem_whatsapp, 
+            status, fez_contato, vale_pena_contato, 
+            data_contato, observacoes, data_criacao, data_atualizacao
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          row.nome || null,
+          row.email || null,
+          row.telefone || null,
+          row.empresa || null,
+          Boolean(row.tem_whatsapp),
+          row.status || 'ativo',
+          Boolean(row.fez_contato),
+          Boolean(row.vale_pena_contato),
+          row.data_contato || null,
+          row.observacoes || null,
+          row.data_criacao || new Date(),
+          row.data_atualizacao || new Date()
+        ]);
+        inseridos++;
+        
+        if (inseridos % 100 === 0) {
+          console.log(`✅ Inseridos ${inseridos}/${clientes.length} registros...`);
+        }
+      } catch (err) {
+        console.error(`❌ Erro ao inserir registro ${row.id}:`, err.message);
+      }
+    }
+    
+    // Verificar resultado
+    const count = await db.get('SELECT COUNT(*) as count FROM clientes');
+    
+    console.log(`🎉 Importação concluída: ${inseridos} registros inseridos`);
+    
+    res.json({
+      success: true,
+      message: `Importação concluída com sucesso!`,
+      total: clientes.length,
+      inseridos: inseridos,
+      finalCount: count.count
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro na importação JSON:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Listar todos os clientes
 app.get('/api/clientes', (req, res) => {
   const { status, tem_whatsapp, fez_contato, vale_pena_contato, busca, sem_telefone, page = 1, limit = 50 } = req.query;

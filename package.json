@@ -12,10 +12,18 @@
     "install-all": "npm install && cd server && npm install && cd ../client && npm install",
     "postinstall": "npm run build"
   },
-  "keywords": ["clientes", "contatos", "crm"],
+  "keywords": [
+    "clientes",
+    "contatos",
+    "crm"
+  ],
   "author": "Utko",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "pg": "^8.16.3",
+    "sqlite3": "^5.1.7"
   }
 }
