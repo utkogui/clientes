@@ -23,6 +23,45 @@ if (usePostgreSQL) {
   };
 
   console.log('🐘 Usando PostgreSQL (produção)');
+  
+  // Criar tabela de clientes (PostgreSQL)
+  const createTable = async () => {
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS clientes (
+          id SERIAL PRIMARY KEY,
+          nome TEXT,
+          email TEXT,
+          telefone TEXT,
+          empresa TEXT,
+          tem_whatsapp BOOLEAN DEFAULT false,
+          status TEXT DEFAULT 'ativo' CHECK(status IN ('ativo', 'inativo')),
+          fez_contato BOOLEAN DEFAULT false,
+          vale_pena_contato BOOLEAN DEFAULT false,
+          data_contato TEXT,
+          observacoes TEXT,
+          data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Criar índices para melhor performance
+      await db.query('CREATE INDEX IF NOT EXISTS idx_status ON clientes(status)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_whatsapp ON clientes(tem_whatsapp)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_contato ON clientes(fez_contato)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_vale_pena ON clientes(vale_pena_contato)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_empresa ON clientes(empresa)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_nome ON clientes(nome)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_email ON clientes(email)');
+      await db.query('CREATE INDEX IF NOT EXISTS idx_telefone ON clientes(telefone)');
+
+      console.log('✅ Tabela clientes criada com sucesso no PostgreSQL');
+    } catch (err) {
+      console.error('❌ Erro ao criar tabela PostgreSQL:', err);
+    }
+  };
+  
+  createTable();
 } else {
   // Usar SQLite em desenvolvimento
   const dbPath = path.join(__dirname, 'clientes.db');
@@ -86,7 +125,6 @@ if (usePostgreSQL) {
 // Criar tabela de clientes (SQLite)
 if (!usePostgreSQL) {
   // Usar o método serialize do SQLite
-  const sqliteDb = new sqlite3.Database(path.join(__dirname, 'clientes.db'));
   sqliteDb.serialize(() => {
     sqliteDb.run(`CREATE TABLE IF NOT EXISTS clientes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
