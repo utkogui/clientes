@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: sistema-clientes
+    env: node
+    plan: free
+    buildCommand: npm run install-all
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /api/estatisticas
+
+databases:
+  - name: clientes-db
+    plan: free
+    databaseName: clientes
+    user: clientes_user
