@@ -48,37 +48,75 @@ const carregarDadosVCF = async () => {
         
         if (!row) {
           // Inserir novo cliente
-          await db.run(
-            'INSERT INTO clientes (nome, email, telefone, empresa, tem_whatsapp) VALUES (?, ?, ?, ?, ?)',
-            [
-              contato.nome || '', 
-              contato.email || '', 
-              contato.telefone || '', 
-              contato.empresa || '', 
-              contato.telefone ? 1 : 0
-            ]
-          );
+          if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+            // PostgreSQL
+            await db.run(
+              'INSERT INTO clientes (nome, email, telefone, empresa, tem_whatsapp) VALUES ($1, $2, $3, $4, $5)',
+              [
+                contato.nome || '', 
+                contato.email || '', 
+                contato.telefone || '', 
+                contato.empresa || '', 
+                contato.telefone ? true : false
+              ]
+            );
+          } else {
+            // SQLite
+            await db.run(
+              'INSERT INTO clientes (nome, email, telefone, empresa, tem_whatsapp) VALUES (?, ?, ?, ?, ?)',
+              [
+                contato.nome || '', 
+                contato.email || '', 
+                contato.telefone || '', 
+                contato.empresa || '', 
+                contato.telefone ? 1 : 0
+              ]
+            );
+          }
           importados++;
         } else {
           // Cliente já existe - atualizar apenas informações básicas, preservando dados importantes
-          await db.run(
-            `UPDATE clientes SET 
-              nome = COALESCE(?, nome),
-              email = COALESCE(?, email),
-              telefone = COALESCE(?, telefone),
-              empresa = COALESCE(?, empresa),
-              tem_whatsapp = CASE WHEN ? = 1 THEN 1 ELSE tem_whatsapp END,
-              data_atualizacao = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [
-              contato.nome || null, 
-              contato.email || null, 
-              contato.telefone || null, 
-              contato.empresa || null, 
-              contato.telefone ? 1 : 0,
-              row.id
-            ]
-          );
+          if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+            // PostgreSQL
+            await db.run(
+              `UPDATE clientes SET 
+                nome = COALESCE($1, nome),
+                email = COALESCE($2, email),
+                telefone = COALESCE($3, telefone),
+                empresa = COALESCE($4, empresa),
+                tem_whatsapp = CASE WHEN $5 = true THEN true ELSE tem_whatsapp END,
+                data_atualizacao = CURRENT_TIMESTAMP
+               WHERE id = $6`,
+              [
+                contato.nome || null, 
+                contato.email || null, 
+                contato.telefone || null, 
+                contato.empresa || null, 
+                contato.telefone ? true : false,
+                row.id
+              ]
+            );
+          } else {
+            // SQLite
+            await db.run(
+              `UPDATE clientes SET 
+                nome = COALESCE(?, nome),
+                email = COALESCE(?, email),
+                telefone = COALESCE(?, telefone),
+                empresa = COALESCE(?, empresa),
+                tem_whatsapp = CASE WHEN ? = 1 THEN 1 ELSE tem_whatsapp END,
+                data_atualizacao = CURRENT_TIMESTAMP
+               WHERE id = ?`,
+              [
+                contato.nome || null, 
+                contato.email || null, 
+                contato.telefone || null, 
+                contato.empresa || null, 
+                contato.telefone ? 1 : 0,
+                row.id
+              ]
+            );
+          }
           duplicados++;
         }
       }
