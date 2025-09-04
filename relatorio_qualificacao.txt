@@ -1,0 +1,7 @@
+Total de Clientes|906
+Com Telefone|664
+Com WhatsApp|664
+Vale Pena Contato|57
+Fez Contato|0
+Ativos|906
+Inativos|0
