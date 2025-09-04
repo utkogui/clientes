@@ -99,9 +99,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
+// Log de startup
+console.log('🚀 Servidor iniciando...');
+console.log('🌍 Ambiente:', process.env.NODE_ENV || 'desenvolvimento');
+console.log('📁 Diretório atual:', __dirname);
+
 // Carregar dados do VCF automaticamente ao iniciar o servidor (não bloqueia)
+console.log('🔄 Iniciando carregamento automático do VCF...');
 carregarDadosVCF().catch(err => {
-  console.error('Erro crítico no carregamento do VCF:', err);
+  console.error('❌ Erro crítico no carregamento do VCF:', err);
+  console.error('Stack trace:', err.stack);
 });
 
 // Rota para visualizador do banco de dados
@@ -120,7 +127,35 @@ app.get('/api/debug-vcf', (req, res) => {
       vcfPath,
       exists,
       size: exists ? fs.statSync(vcfPath).size : 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'desenvolvimento',
+      currentDir: __dirname
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para forçar carregamento do VCF
+app.post('/api/force-load-vcf', async (req, res) => {
+  try {
+    console.log('🔄 Forçando carregamento do VCF via API...');
+    await carregarDadosVCF();
+    res.json({ success: true, message: 'VCF carregado com sucesso' });
+  } catch (error) {
+    console.error('❌ Erro ao forçar carregamento:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Rota para verificar status do banco
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const count = await db.get('SELECT COUNT(*) as count FROM clientes');
+    res.json({
+      totalClientes: count.count,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'desenvolvimento'
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -328,6 +363,9 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Acesse: http://localhost:${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🌐 Acesse: http://localhost:${PORT}`);
+  console.log(`🔧 Ambiente: ${process.env.NODE_ENV || 'desenvolvimento'}`);
+  console.log(`📁 Diretório: ${__dirname}`);
+  console.log(`⏰ Iniciado em: ${new Date().toISOString()}`);
 });
