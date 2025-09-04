@@ -72,7 +72,32 @@ app.post('/api/importar-contatos', (req, res) => {
               }
             );
           } else {
-            duplicados++;
+            // Cliente já existe - atualizar apenas informações básicas, preservando dados importantes
+            db.run(
+              `UPDATE clientes SET 
+                nome = COALESCE(?, nome),
+                email = COALESCE(?, email),
+                telefone = COALESCE(?, telefone),
+                empresa = COALESCE(?, empresa),
+                tem_whatsapp = CASE WHEN ? = 1 THEN 1 ELSE tem_whatsapp END,
+                data_atualizacao = CURRENT_TIMESTAMP
+               WHERE id = ?`,
+              [
+                contato.nome || null, 
+                contato.email || null, 
+                contato.telefone || null, 
+                contato.empresa || null, 
+                contato.telefone ? 1 : 0,
+                row.id
+              ],
+              function(err) {
+                if (err) {
+                  console.error('Erro ao atualizar cliente:', err);
+                } else {
+                  duplicados++;
+                }
+              }
+            );
           }
         });
       }
@@ -85,7 +110,7 @@ app.post('/api/importar-contatos', (req, res) => {
         total: contatos.length,
         importados,
         duplicados,
-        mensagem: `Importação concluída: ${importados} novos clientes, ${duplicados} duplicados ignorados`
+        mensagem: `Importação concluída: ${importados} novos clientes, ${duplicados} clientes existentes atualizados (dados importantes preservados)`
       });
     }, 2000);
     
